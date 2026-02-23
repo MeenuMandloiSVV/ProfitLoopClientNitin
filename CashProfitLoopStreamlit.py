@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from pymongo import MongoClient
+import asyncio
+import motor.motor_asyncio
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -94,20 +95,26 @@ client_id = st.text_input("Client ID", autocomplete="off")
 if not client_id:
     st.stop()
 
-# ---------------- MONGO CONNECTION ----------------
+# ---------------- MONGO CONNECTION (MOTOR) ----------------
 @st.cache_resource
 def get_mongo_client():
-    return MongoClient(MONGO_URI)
+    return motor.motor_asyncio.AsyncIOMotorClient(
+        MONGO_URI,
+        serverSelectionTimeoutMS=5000
+    )
 
 client = get_mongo_client()
 db = client[client_id]
 collection = db[COLLECTION_NAME]
 
 # ---------------- FETCH DATA ----------------
-doc = collection.find_one(
-    {"StrategyID": STRATEGY_ID},
-    {"_id": 0, "Symbol": 1}
-)
+async def fetch_data():
+    return await collection.find_one(
+        {"StrategyID": STRATEGY_ID},
+        {"_id": 0, "Symbol": 1}
+    )
+
+doc = asyncio.run(fetch_data())
 
 if not doc or not doc.get("Symbol"):
     st.error("No symbols found")
@@ -125,7 +132,6 @@ df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce").fillna(0.0)
 col1, col2 = st.columns([3, 1])
 with col2:
     if st.button("🔄 Refresh Data"):
-        st.cache_resource.clear()
         st.rerun()
 
 # ---------------- FORM ----------------
@@ -143,14 +149,16 @@ with st.form("symbol_form"):
     save = st.form_submit_button("💾 Save")
 
 # ---------------- SAVE ----------------
-if save:
-    collection.update_one(
+async def save_data(updated_df):
+    await collection.update_one(
         {"StrategyID": STRATEGY_ID},
         {
             "$set": {
-                "Symbol": dict(zip(edited_df["Symbol"], edited_df["Amount"]))
+                "Symbol": dict(zip(updated_df["Symbol"], updated_df["Amount"]))
             }
         }
     )
 
+if save:
+    asyncio.run(save_data(edited_df))
     st.success("✅ Saved successfully")
