@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from pymongo import MongoClient
+
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -152,5 +152,6 @@ if save:
             }
         }
     )
+
 
     st.success("✅ Saved successfully")
