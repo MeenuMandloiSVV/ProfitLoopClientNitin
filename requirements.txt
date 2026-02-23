@@ -1,5 +1,5 @@
 streamlit==1.44.1
 pandas==2.2.2
-pymongo==4.16.0
-dnspython==2.8.0
+
+
 
